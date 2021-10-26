@@ -1,0 +1,114 @@
+/**
+ //-------------------------------------------------------------------------------------------------------------------//
+ //                                                  INTRODUCTION AND SETUP                                           //
+ //-------------------------------------------------------------------------------------------------------------------//
+ This is a build.gradle for subprojects that relies on GradVer(https://github.com/davideas/GrabVer)for versioning. It
+ also relied on NEXUS for publishing libraries. This BuildScript is meant to be as drag and drop as possible as
+ long as the rest of the project has been set up correctly it will work out of the box.
+
+ In your Repository Manager set up two repositories with Maven2 (Hosted):
+ REPO 1 = <REPO_NAME>_SNAPSHOT set version policy to Snapshot
+ REPO 2 = <REPO_NAME>_RELEASE set version policy to Release
+ Configure the rest of the Repos the way you want them to be.
+
+ You will need a gradle.properties file in the rootProject Folder and you will need to set repoUser and repoPassword
+ to the username and password you use to access Nexus. (You should not publish gradle.properties to any repo or VCS)
+ In the configuration portion of this script you will need to set the repo URL this is the base repo url formatted as
+ http://www.<domain>.com:<port>/repository/
+
+ Finally you will need to set the RepoName this is the the name of the repo you want to use minus the
+ _SNAPSHOT/_RELEASE tag at the end. This will be automatically handled by the build script.
+
+ //-------------------------------------------------------------------------------------------------------------------//
+ //                                                   CONFIGURATION                                                   //
+ //-------------------------------------------------------------------------------------------------------------------//
+ **/
+//VERSIONING SETTINGS (all new projects will start with a build number of 1 and auto-increments on build)
+//example output for default settings would be <ProjectName>-0.0.1.1-indev-SNAPSHOT
+ext.GroupID = "games.absolutephoenix"
+ext.MajorVersion = 0
+ext.MinorVersion = 0
+ext.PatchVersion = 1
+ext.PreRelease = "indev"
+
+//THIS WILL DETERMINE WHAT REPOSITORY IT WILL PUBLISH TOO.
+ext.isSnapshot = true
+
+//REPOSITORY SETTINGS
+ext.RepoURL = "http://www.absolutephoenix.games:81/repository/"
+ext.RepoName = "Phoenix-Maven"
+
+/**
+//____________________________________________________________________________________________________________________//
+//                                        DO NOT EDIT ANYTHING BELOW THIS POINT                                       //
+//--------------------------------------------------------------------------------------------------------------------//
+**/
+//get repo username and password
+ext.RepoUser = rootProject.repoUser
+ext.RepoPassword = rootProject.repoPassword
+//set formatted tags for publish names on side panel
+ext.ProjectNameFormatted = "__" + project.name + "__"
+ext.RepoNameFormatted = "__" + RepoName + "__"
+
+
+//applies GradVer plugin for versioning
+apply plugin: "eu.davidea.grabver"
+//apply Java Library plugin for coding element
+apply plugin: "java-library"
+//apply Maven Publish plugin for publishing to repositories
+apply plugin: "maven-publish"
+
+versioning {
+    major MajorVersion
+    minor MinorVersion
+    patch PatchVersion
+    preRelease PreRelease
+    incrementOn "build"
+}
+
+group GroupID
+version "$versioning.major.$versioning.minor.$versioning.patch.$versioning.build-$versioning.preRelease"
+
+if(isSnapshot) {
+    version = version + "-SNAPSHOT"
+    RepoURL = RepoURL + "_SNAPSHOT/"
+} else {
+    RepoURL = RepoURL + "_RELEASE/"
+}
+
+repositories{
+    mavenCentral()
+    maven{
+        url("http://www.absolutephoenix.games:81/repository/Phoenix-Maven_SNAPSHOT/")
+        allowInsecureProtocol = true
+
+    }
+    maven {
+        url("http://www.absolutephoenix.games:81/repository/Phoenix-Maven_RELEASE/")
+        allowInsecureProtocol = true
+    }
+}
+
+publishing{
+    publications{
+        "$ProjectNameFormatted"(MavenPublication){
+            artifact("build/libs/$rootProject.name-$version"+".jar") {
+                extension 'jar'
+            }
+        }
+    }
+    repositories {
+        maven {
+            name RepoNameFormatted
+            url(RepoURL)
+            credentials{
+                username = RepoUser
+                password = RepoPassword
+            }
+            allowInsecureProtocol = true
+        }
+    }
+}
+
+
+System.out.println()
